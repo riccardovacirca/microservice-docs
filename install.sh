@@ -136,6 +136,9 @@ fi
 # ENV FILE TEST
 # ------------------------------------------------------------------------------
 if [ "$option" = "env-test" ]; then
+  echo ""
+  echo "INSTALL .ENV TEST"
+  echo ""
   if [ -f .env ]; then
     echo "Error: .env file exists!"
     exit 1
@@ -179,7 +182,9 @@ EOF
 fi
 # ------------------------------------------------------------------------------
 if [ ! -f .env ]; then
+  echo ""
   echo "Error: .env file does not exists!"
+  echo ""
   exit 1
 fi
 # ------------------------------------------------------------------------------
@@ -188,6 +193,9 @@ source .env
 # PURGE
 # ------------------------------------------------------------------------------
 if [ "$option" = "purge" ]; then
+  echo ""
+  echo "PURGE INSTALLATION"
+  echo ""
   rm -rf cppjwt mongoose unity
   rm -rf bin tmp .env
   if [ -n "$(docker ps -a -q -f name=${SERVICE_NAME})" ]; then
@@ -308,6 +316,9 @@ fi
 # DATABASE SERVER
 # ------------------------------------------------------------------------------
 if [ -n "${DB_CONTAINER}" ]; then
+  echo ""
+  echo "INSTALL DB SERVER"
+  echo ""
   echo "Check for database container..."
   if [ -z "$(docker ps -a -q -f name=${DB_CONTAINER})" ]; then
     echo "Container ${DB_CONTAINER} does not exists."
@@ -372,12 +383,18 @@ fi
 # di sviluppo
 # ------------------------------------------------------------------------------
 if [ "$option" = "test-bin" ] && [ "${SERVICE_NAME}" != "service" ]; then
+  echo ""
+  echo "CHANGE SERVICE_NAME"
+  echo ""
   SERVICE_NAME="service"
 fi
 # ------------------------------------------------------------------------------
 # DATABASE SCHEMA/DATA
 # ------------------------------------------------------------------------------
 if [ -z "$DB_INSTALLED" ]; then
+  echo ""
+  echo "INSTALL DB SCHEMA"
+  echo ""
   if [ "$DB_SERVER" = "mariadb" ]; then
     if [ -n "$DB_PASSWORD" ]; then
       if [ -f "$DB_SCHEMA" ]; then
@@ -422,6 +439,9 @@ if [ -z "$DB_INSTALLED" ]; then
           [ -n "${DB_PORT}" ] && \
           [ -n "${DB_PASSWORD}" ] && \
           [ -n "${SERVICE_NAME}" ]; then
+          echo ""
+          echo "ADD VARIABLE DB_CONN_S"
+          echo ""
           DB_CONN_S="host=${DB_HOST},port=${DB_PORT},"
           DB_CONN_S+="user=${SERVICE_NAME},pass=${DB_PASSWORD},"
           DB_CONN_S+="dbname=${SERVICE_NAME}"
@@ -438,6 +458,9 @@ fi
 # distribuzione tar.gz generato con make
 # ------------------------------------------------------------------------------
 if [ "$option" = "release" ]; then
+  echo ""
+  echo "INSTALL RELEASE"
+  echo ""
   VERS=""
   if [ -f VERSION ]; then
 		VERS=$(cat VERSION)
@@ -459,6 +482,9 @@ if [ -n "${GITHUB_WORKSPACE}" ]; then
 fi
 echo $LOCAL_VOLUME
 if [ -z "$(docker ps -a --format '{{.Names}}' | grep "^${SERVICE_NAME}$")" ]; then
+  echo ""
+  echo "INSTALL SERVICE CONTAINER"
+  echo ""
   STEP="y"
   if [ "$option" = "debug" ]; then
     read -p "docker pull $SERVICE_DOCKER_IMAGE? (y/N/s=stop) " STEP;
@@ -504,6 +530,9 @@ if [ "$option" = "debug" ]; then
 fi
 if [ "$STEP" = "s" ]; then exit 0; fi
 if [ "$STEP" = "y" ]; then
+  echo ""
+  echo "INSTALL TIMEZONE"
+  echo ""
   docker exec -i $SERVICE_NAME bash -c "\
     export DEBIAN_FRONTEND=noninteractive && \
     ln -fs /usr/share/zoneinfo/Europe/Rome /etc/localtime && \
@@ -524,6 +553,9 @@ if [ "$option" = "debug" ]; then
 fi
 if [ "$STEP" = "s" ]; then exit 0; fi
 if [ "$STEP" = "y" ]; then
+  echo ""
+  echo "INSTALL APT PACKAGES"
+  echo ""
   docker exec -i $SERVICE_NAME bash -c "\
     apt-get update && apt-get install -y --no-install-recommends \
     $DEPS && apt-get clean && rm -rf /var/lib/apt/lists/*"
