@@ -1,0 +1,11 @@
+*
+!bin/
+!bin/**
+!html/
+!html/**
+!.github/
+!.github/**
+!index.html
+!install.sh
+!CNAME
+!.gitignore

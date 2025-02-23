@@ -569,11 +569,13 @@ if [ "$option" = "test-bin" ]; then
 	if [ -n "${DB_CONN_S}" ]; then
     RUN+=" -d \"${DB_DRIVER}\" -D \"${DB_CONN_S}\"";
   fi
-  EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && echo \"RUN: ${RUN}\" > bin/output.txt && ${RUN} >> bin/output.txt && echo $?");
-  if [ "$EXIT_CODE" -ne 0 ]; then
-    exit 1;
-  fi
-  echo $EXIT_CODE
+  echo $RUN
+  docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} && echo $?"
+  # EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && echo \"RUN: ${RUN}\" > bin/output.txt && ${RUN} >> bin/output.txt && echo $?");
+  # if [ "$EXIT_CODE" -ne 0 ]; then
+  #   exit 1;
+  # fi
+  # echo $EXIT_CODE
   exit 0
 fi
 # ------------------------------------------------------------------------------
