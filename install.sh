@@ -452,6 +452,10 @@ fi
 # ------------------------------------------------------------------------------
 # DEV IMAGE/CONTAINER
 # ------------------------------------------------------------------------------
+LOCAL_VOLUME=$(pwd)
+if [ -n "${GITHUB_WORKSPACE}" ]; then
+  LOCAL_VOLUME="${GITHUB_WORKSPACE}"
+fi
 if [ -z "$(docker ps -a -q -f name=${SERVICE_NAME})" ]; then
   STEP="y"
   if [ "$option" = "debug" ]; then
@@ -469,11 +473,11 @@ if [ -z "$(docker ps -a -q -f name=${SERVICE_NAME})" ]; then
   if [ "$STEP" = "y" ]; then
     if [ "$option" = "test-bin" ]; then
       docker run -di --name $SERVICE_NAME --network $SERVICE_NETWORK \
-        -v "$(pwd):$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
+        -v "$LOCAL_VOLUME:$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
     else
       docker run -dit --name $SERVICE_NAME --network $SERVICE_NETWORK \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -v "$(pwd):$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
+        -v "$LOCAL_VOLUME:$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
     fi
   fi
 fi
@@ -531,8 +535,8 @@ if [ "$option" = "test-bin" ]; then
 	if [ -n "${DB_CONN_S}" ]; then
     RUN+=" -d \"${DB_DRIVER}\" -D \"${DB_CONN_S}\"";
   fi
-  echo "RUN: ${RUN}" > /service/bin/output.txt
-  EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} >> /service/bin/output.txt && echo $?");
+  echo "RUN: ${RUN}" > bin/output.txt
+  EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} >> bin/output.txt && echo $?");
   if [ "$EXIT_CODE" -ne 0 ]; then
     exit 1;
   fi
