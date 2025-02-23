@@ -53,7 +53,7 @@ GITHUB_MAIL=""
 GITHUB_TOKEN=""
 BENCH_CONCURRENCE=1
 BENCH_TIME=10s
-DOCKER_PACKAGES="curl libssl3 libmariadb3 libpq5 libsqlite3-0 unixodbc \
+SERVICE_DEPENDENCIES="curl libssl3 libmariadb3 libpq5 libsqlite3-0 unixodbc \
 libjson-c5 libapr1 libaprutil1 libaprutil1-dbd-mysql libaprutil1-dbd-pgsql \
 libaprutil1-dbd-sqlite3 libjwt2 wget gnupg"
 MONGOOSE_GITHUB_REPO="https://github.com/riccardovacirca/mongoose.git"
@@ -112,7 +112,7 @@ GITHUB_MAIL="${GITHUB_MAIL}"
 GITHUB_TOKEN="${GITHUB_TOKEN}"
 BENCH_CONCURRENCE=$BENCH_CONCURRENCE
 BENCH_TIME=$BENCH_TIME
-DOCKER_PACKAGES="${DOCKER_PACKAGES}"
+SERVICE_DEPENDENCIES="${SERVICE_DEPENDENCIES}"
 DB_IMAGE="${DB_IMAGE}"
 DB_CONTAINER="${DB_CONTAINER}"
 DB_SERVER="${DB_SERVER}"
@@ -365,6 +365,15 @@ if [ -n "${DB_CONTAINER}" ]; then
   fi
 fi
 # ------------------------------------------------------------------------------
+# TEST-BIN
+# Se ./install.sh --test-bin viene eseguito sul server di sviluppo
+# occorre rinominare il container di test per evitare confitti con quello
+# di sviluppo
+# ------------------------------------------------------------------------------
+if [ "$option" = "test-bin" ] && [ "${SERVICE_NAME}" != "service" ]; then
+  SERVICE_NAME="service"
+fi
+# ------------------------------------------------------------------------------
 # DATABASE SCHEMA/DATA
 # ------------------------------------------------------------------------------
 if [ -z "$DB_INSTALLED" ]; then
@@ -423,40 +432,6 @@ if [ -z "$DB_INSTALLED" ]; then
   fi
 fi
 # ------------------------------------------------------------------------------
-# TEST-BIN
-# Run della versione di test compilata nel container di release
-# ------------------------------------------------------------------------------
-if [ "$option" = "test-bin" ]; then
-	echo "Generating Dockerfile..."
-	echo "FROM ${SERVICE_DOCKER_IMAGE}" > Dockerfile
-	echo "RUN apt-get update " >> Dockerfile
-  echo "&& apt-get install -y --no-install-recommends \\" >> Dockerfile
-	echo "    ${DOCKER_PACKAGES} \\" >> Dockerfile
-	echo "    && apt-get clean && rm -rf /var/lib/apt/lists/*" >> Dockerfile
-	echo "WORKDIR ${SERVICE_WORKING_DIR}" >> Dockerfile
-	echo "COPY ./${SERVICE_BIN} ${SERVICE_CMD}" >> Dockerfile
-	echo "RUN chmod +x ${SERVICE_CMD}" >> Dockerfile
-	echo "ENTRYPOINT [\"${SERVICE_CMD}\", \"-h\", \"${SERVICE_HOST}\", \
-    \"-p\", \"${SERVICE_PORT}\", \"-P\", \"${SERVICE_TLS_PORT}\", \
-    \"-l\", \"${SERVICE_LOG}\", \"-d\", \"${DB_DRIVER}\", \
-    \"-D\", \"${DB_CONN_S}\"]" >> Dockerfile
-	echo "Build image..."
-  docker build -f Dockerfile -t "${SERVICE_NAME}" .
-	echo "Run container..."
-  docker run -v -d --name $SERVICE_NAME -p $SERVICE_PORT:2310 \
-    -P $SERVICE_TLS_PORT:2443 --network $SERVICE_NETWORK $SERVICE_NAME
-
-  EXIT_CODE=$(docker exec -i service bash -c "\
-    cd ${SERVICE_WORKING_DIR} && mkdir -p bin && make test >/dev/null; \
-    make run >/dev/null; echo $?")
-  if [ "$EXIT_CODE" -ne 0 ]; then exit 1; fi
-  echo $EXIT_CODE
-  exit $EXIT_CODE
-fi
-
-
-
-# ------------------------------------------------------------------------------
 # RELEASE
 # Installa immagine e conatiner della versione di rilascio dal file di
 # distribuzione tar.gz generato con make
@@ -475,7 +450,7 @@ if [ "$option" = "release" ]; then
   exit 0
 fi
 # ------------------------------------------------------------------------------
-# DEV IMAGE/CONTAINER: BUILD & RUN SERVICE CONTAINER
+# DEV IMAGE/CONTAINER
 # ------------------------------------------------------------------------------
 if [ -z "$(docker ps -a -q -f name=${SERVICE_NAME})" ]; then
   STEP="y"
@@ -492,9 +467,14 @@ if [ -z "$(docker ps -a -q -f name=${SERVICE_NAME})" ]; then
   fi
   if [ "$STEP" = "s" ]; then exit 0; fi
   if [ "$STEP" = "y" ]; then
-    docker run -dit --name $SERVICE_NAME --network $SERVICE_NETWORK \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v "$(pwd):$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
+    if [ "$option" = "test-bin" ]; then
+      docker run -di --name $SERVICE_NAME --network $SERVICE_NETWORK \
+        -v "$(pwd):$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
+    else
+      docker run -dit --name $SERVICE_NAME --network $SERVICE_NETWORK \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v "$(pwd):$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
+    fi
   fi
 fi
 STEP="y"
@@ -510,7 +490,7 @@ if [ "$STEP" = "y" ]; then
   done
 fi
 # ------------------------------------------------------------------------------
-# SERVICE TIMEZONE: INSTALL TIMEZONE PACKAGE
+# TIMEZONE
 # ------------------------------------------------------------------------------
 STEP="y"
 if [ "$option" = "debug" ]; then
@@ -526,18 +506,42 @@ if [ "$STEP" = "y" ]; then
     dpkg-reconfigure -f noninteractive tzdata"
 fi
 # ------------------------------------------------------------------------------
-# DEVELOPMENT PACKAGES: INSTALL APT PACKAGES & MONGOOSE & UNITY & CPPJWT
+# APT PACKAGES
 # ------------------------------------------------------------------------------
+DEPS="${SERVICE_DEV_DEPENDENCIES}"
+if [ "$option" = "test-bin" ]; then
+  DEPS="${SERVICE_DEPENDENCIES}"
+fi
 STEP="y"
 if [ "$option" = "debug" ]; then
-  read -p "Install development packages? (y/N/s=stop) " STEP;
+  read -p "Install dependencies packages? (y/N/s=stop) " STEP;
 fi
 if [ "$STEP" = "s" ]; then exit 0; fi
 if [ "$STEP" = "y" ]; then
   docker exec -i $SERVICE_NAME bash -c "\
     apt-get update && apt-get install -y --no-install-recommends \
-    $SERVICE_DEV_DEPENDENCIES && apt-get clean && rm -rf /var/lib/apt/lists/*"
+    $DEPS && apt-get clean && rm -rf /var/lib/apt/lists/*"
 fi
+# ------------------------------------------------------------------------------
+# TEST-BIN
+# Run della versione di test compilata nel container di release
+# ------------------------------------------------------------------------------
+if [ "$option" = "test-bin" ]; then
+  RUN="$SERVICE_BIN -h \"${SERVICE_HOST}\" -p \"${SERVICE_PORT}\" -P \"${SERVICE_TLS_PORT}\" -l \"${SERVICE_LOG}\""
+	if [ -n "${DB_CONN_S}" ]; then
+    RUN+=" -d \"${DB_DRIVER}\" -D \"${DB_CONN_S}\"";
+  fi
+  echo "RUN: ${RUN}" > /service/bin/output.txt
+  EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} >> /service/bin/output.txt && echo $?");
+  if [ "$EXIT_CODE" -ne 0 ]; then
+    exit 1;
+  fi
+  echo $EXIT_CODE
+  exit 0
+fi
+# ------------------------------------------------------------------------------
+# MONGOOSE, UNITY, CPPJWT
+# ------------------------------------------------------------------------------
 if [ ! -d "mongoose" ]; then
   STEP="y"
   if [ "$option" = "debug" ]; then
@@ -586,7 +590,7 @@ if [ "$STEP" = "y" ]; then
     echo \"alias cls='clear'\" >> /etc/bash.bashrc && source /etc/bash.bashrc"
 fi
 # ------------------------------------------------------------------------------
-# GITHUB ENV/REPO: INSTALL GITHUB REPO | CONFIG LOCAL GIT
+# GITHUB ENV/REPO / GIT LOCAL CONFIG
 # ------------------------------------------------------------------------------
 if [ -n "$GITHUB_USER" ] && [ -n "$GITHUB_MAIL" ]; then
   if [ -d ".git" ] && [ -n "$GITHUB_TOKEN" ]; then
@@ -646,7 +650,7 @@ if [ -n "$GITHUB_USER" ] && [ -n "$GITHUB_MAIL" ]; then
   fi
 fi
 # ------------------------------------------------------------------------------
-# TEST: MAKE TEST & MAKE RUN
+# TEST
 # ------------------------------------------------------------------------------
 if [ "$option" = "test" ]; then
   EXIT_CODE=$(docker exec -i service bash -c "\
@@ -657,7 +661,7 @@ if [ "$option" = "test" ]; then
   exit $EXIT_CODE
 fi
 # ------------------------------------------------------------------------------
-# GITHUB CI/CD: BUILD DEVELOP WORKFLOW & BUILD MAIN WORKFLOW
+# GITHUB CI/CD WORKFLOWS
 # ------------------------------------------------------------------------------
 if [ ! -d .github ]; then
   STEP="y"
