@@ -167,6 +167,7 @@ DB_SCHEMA="${DB_SCHEMA}"
 DB_DATA="${DB_DATA}"
 BENCH_CONCURRENCE=$BENCH_CONCURRENCE
 BENCH_TIME=$BENCH_TIME
+SERVICE_DEPENDENCIES="${SERVICE_DEPENDENCIES}"
 MONGOOSE_GITHUB_REPO="${MONGOOSE_GITHUB_REPO}"
 MONGOOSE_DIR="${MONGOOSE_DIR}"
 UNITY_GITHUB_REPO="${UNITY_GITHUB_REPO}"
@@ -456,7 +457,8 @@ LOCAL_VOLUME=$(pwd)
 if [ -n "${GITHUB_WORKSPACE}" ]; then
   LOCAL_VOLUME="${GITHUB_WORKSPACE}"
 fi
-if [ -z "$(docker ps -a -q -f name=${SERVICE_NAME})" ]; then
+echo $LOCAL_VOLUME
+if [ -z "$(docker ps -a --format '{{.Names}}' | grep "^${SERVICE_NAME}$")" ]; then
   STEP="y"
   if [ "$option" = "debug" ]; then
     read -p "docker pull $SERVICE_DOCKER_IMAGE? (y/N/s=stop) " STEP;
@@ -535,8 +537,7 @@ if [ "$option" = "test-bin" ]; then
 	if [ -n "${DB_CONN_S}" ]; then
     RUN+=" -d \"${DB_DRIVER}\" -D \"${DB_CONN_S}\"";
   fi
-  echo "RUN: ${RUN}" > bin/output.txt
-  EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} >> bin/output.txt && echo $?");
+  EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && echo \"RUN: ${RUN}\" > bin/output.txt && ${RUN} >> bin/output.txt && echo $?");
   if [ "$EXIT_CODE" -ne 0 ]; then
     exit 1;
   fi

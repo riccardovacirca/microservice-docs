@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'bin/service'
 jobs:
   branch-main-job:
     runs-on: ubuntu-latest
