@@ -1,0 +1,17 @@
+name: Main CI/CD Workflow
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bin/service'
+jobs:
+  branch-main-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Run binary unit-test
+        run: ./install.sh --env-test && ./install.sh --test-bin
