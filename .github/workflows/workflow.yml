@@ -1,4 +1,4 @@
-name: Main CI/CD Workflow
+name: Docs CI/CD Workflow
 on:
   push:
     branches:
@@ -12,4 +12,4 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run binary unit-test
-        run: ./install.sh --env-test && ./install.sh --test-bin
+        run: ./install.sh --env-test && ./install.sh --bin-test

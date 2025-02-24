@@ -254,7 +254,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run binary unit-test
-        run: ./install.sh --env-test && ./install.sh --test-bin
+        run: ./install.sh --env-test && ./install.sh --bin-test
 EOF
       if [ -n "${SERVICE_URI}" ]; then
         echo "${SERVICE_URI}" > docs/CNAME
@@ -377,12 +377,12 @@ if [ -n "${DB_CONTAINER}" ]; then
   fi
 fi
 # ------------------------------------------------------------------------------
-# TEST-BIN
-# Se ./install.sh --test-bin viene eseguito sul server di sviluppo
+# BIN-TEST
+# Se ./install.sh --bin-test viene eseguito sul server di sviluppo
 # occorre rinominare il container di test per evitare confitti con quello
 # di sviluppo
 # ------------------------------------------------------------------------------
-if [ "$option" = "test-bin" ] && [ "${SERVICE_NAME}" != "service" ]; then
+if [ "$option" = "bin-test" ] && [ "${SERVICE_NAME}" != "service" ]; then
   echo ""
   echo "CHANGE SERVICE_NAME"
   echo ""
@@ -499,7 +499,7 @@ if [ -z "$(docker ps -a --format '{{.Names}}' | grep "^${SERVICE_NAME}$")" ]; th
   fi
   if [ "$STEP" = "s" ]; then exit 0; fi
   if [ "$STEP" = "y" ]; then
-    if [ "$option" = "test-bin" ]; then
+    if [ "$option" = "bin-test" ]; then
       docker run -di --name $SERVICE_NAME --network $SERVICE_NETWORK \
         -v "$LOCAL_VOLUME:$SERVICE_WORKING_DIR" $SERVICE_DOCKER_IMAGE
     else
@@ -544,7 +544,7 @@ fi
 # APT PACKAGES
 # ------------------------------------------------------------------------------
 DEPS="${SERVICE_DEV_DEPENDENCIES}"
-if [ "$option" = "test-bin" ]; then
+if [ "$option" = "bin-test" ]; then
   DEPS="${SERVICE_DEPENDENCIES}"
 fi
 STEP="y"
@@ -561,21 +561,16 @@ if [ "$STEP" = "y" ]; then
     $DEPS && apt-get clean && rm -rf /var/lib/apt/lists/*"
 fi
 # ------------------------------------------------------------------------------
-# TEST-BIN
+# BIN-TEST
 # Run della versione di test compilata nel container di release
 # ------------------------------------------------------------------------------
-if [ "$option" = "test-bin" ]; then
+if [ "$option" = "bin-test" ]; then
   RUN="$SERVICE_BIN -h \"${SERVICE_HOST}\" -p \"${SERVICE_PORT}\" -P \"${SERVICE_TLS_PORT}\" -l \"${SERVICE_LOG}\""
 	if [ -n "${DB_CONN_S}" ]; then
     RUN+=" -d \"${DB_DRIVER}\" -D \"${DB_CONN_S}\"";
   fi
-  echo $RUN
-  docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} && echo $?"
-  # EXIT_CODE=$(docker exec -i $SERVICE_NAME bash -c "cd /service && echo \"RUN: ${RUN}\" > bin/output.txt && ${RUN} >> bin/output.txt && echo $?");
-  # if [ "$EXIT_CODE" -ne 0 ]; then
-  #   exit 1;
-  # fi
-  # echo $EXIT_CODE
+  echo "RUN: $RUN"
+  docker exec -i $SERVICE_NAME bash -c "cd /service && ${RUN} && echo \"EXIT CODE: $?\""
   exit 0
 fi
 # ------------------------------------------------------------------------------
