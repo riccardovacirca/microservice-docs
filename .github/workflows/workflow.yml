@@ -9,7 +9,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Run binary unit-test
-        run: ./install.sh --env-test && ./install.sh --bin-test
+      - name: Clone repository microservice
+        run: |
+          git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/riccardovacirca/microservice.git microservice
+      - name: Run unit-test
+        run: cd microservice && chmod +x install.sh && ./install.sh --env-test && ./install.sh --test
